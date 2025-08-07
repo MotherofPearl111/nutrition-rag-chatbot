@@ -99,9 +99,9 @@ Please provide:
 
 Keep your response conversational and easy to understand."""
 
-        # Call Claude API
+               # Call Claude API
         response = claude.messages.create(
-            model="claude-3-sonnet-20240229",  # Using stable model name
+            model="claude-3-5-sonnet-20241022",  # ← Change this line
             max_tokens=800,
             temperature=0.7,
             messages=[{
