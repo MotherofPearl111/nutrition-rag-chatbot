@@ -1,4 +1,3 @@
-cat > main.py << 'EOF'
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -65,7 +64,7 @@ def extract_text(file_path: str, filename: str) -> str:
 def chunk_text(text: str) -> List[str]:
     chunks = []
     words = text.split()
-    chunk_size = 150  # Smaller chunks for better embedding
+    chunk_size = 150
     for i in range(0, len(words), chunk_size):
         chunks.append(" ".join(words[i:i+chunk_size]))
     return [c for c in chunks if len(c.strip()) > 50]
@@ -86,7 +85,6 @@ async def upload(file: UploadFile = File(...)):
         text = extract_text(file_path, file.filename)
         chunks = chunk_text(text)
         
-        # Upsert with text - Pinecone will handle embeddings automatically
         upsert_data = []
         for i, chunk in enumerate(chunks):
             upsert_data.append({
@@ -97,7 +95,6 @@ async def upload(file: UploadFile = File(...)):
                 }
             })
         
-        # For hosted embeddings, we pass the text in metadata and let Pinecone embed
         index.upsert(vectors=upsert_data, async_req=False)
         os.remove(file_path)
         
@@ -116,7 +113,6 @@ async def chat(request: ChatRequest):
         raise HTTPException(503, "Services not initialized")
     
     try:
-        # Query using text - Pinecone will embed the query automatically
         results = index.query(
             vector=request.message,
             top_k=3,
@@ -164,4 +160,3 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
-EOF
