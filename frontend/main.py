@@ -61,7 +61,7 @@ async def chat(request: ChatRequest):
     try:
         # Call Claude API for nutrition advice
         response = claude.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-3-5-sonnet-20241022", 
             max_tokens=500,
             messages=[{
                 "role": "user", 
