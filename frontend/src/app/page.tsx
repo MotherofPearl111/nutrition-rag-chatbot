@@ -1,19 +1,17 @@
-'use client';
+"use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
+
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 export default function Home() {
-  const [messages, setMessages] = useState([
-    {
-      role: 'assistant',
-      content: "🎉 Hello! I'm your nutrition assistant powered by Claude AI. Ask me anything about nutrition!"
-    }
-  ]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isThinking, setIsThinking] = useState(false);
-  const [error, setError] = useState(null);
-  const messagesEndRef = useRef(null);
-  const API_URL = 'https://nutrition-rag-chatbot-production.up.railway.app';
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -23,151 +21,90 @@ export default function Home() {
     scrollToBottom();
   }, [messages]);
 
-  const showError = (message) => {
-    setError(message);
-    setTimeout(() => setError(null), 5000);
-  };
+  const sendMessage = async () => {
+    if (!input.trim() || loading) return;
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
-
-    const userMessage = { role: 'user', content: inputMessage };
+    const userMessage: Message = { role: 'user', content: input };
     setMessages(prev => [...prev, userMessage]);
-    const currentMessage = inputMessage;
-    setInputMessage('');
-    setIsThinking(true);
-    setError(null);
+    setInput('');
+    setLoading(true);
 
     try {
+      // Replace with your Railway backend URL
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      
       const response = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: currentMessage }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: input }),
       });
 
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-
       const data = await response.json();
       
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: data.response
-      }]);
-
-    } catch (error) {
-      showError(`Failed: ${error.message}`);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: "❌ Connection failed. Please try again."
-      }]);
-    }
-
-    setIsThinking(false);
-  };
-
-  const testConnection = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/health`);
-      const data = await response.json();
+      const assistantMessage: Message = { 
+        role: 'assistant', 
+        content: data.response 
+      };
       
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `🔍 Connection Test - API: ${data.status}, Claude: ${data.claude ? 'Connected' : 'Not connected'}`
-      }]);
+      setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      showError("❌ Cannot connect to backend!");
+      console.error('Error:', error);
+      const errorMessage: Message = { 
+        role: 'assistant', 
+        content: 'Sorry, I encountered an error. Please try again.' 
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4 bg-gray-50 min-h-screen">
-      <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      <div className="w-full max-w-2xl">
+        <h1 className="text-3xl font-bold mb-8 text-center">Nutrition RAG Chatbot</h1>
         
-        <div className="bg-gradient-to-r from-green-600 to-blue-600 p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">🥗 Nutrition Assistant</h1>
-              <p className="text-green-100">AI-Powered Nutrition Advice with Claude</p>
-            </div>
-            
-            <button
-              onClick={testConnection}
-              className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm"
-            >
-              Test Connection
-            </button>
-          </div>
-        </div>
-
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-400 p-4 m-4">
-            <p className="text-red-700">{error}</p>
-          </div>
-        )}
-
-        <div className="h-96 overflow-y-auto p-6 space-y-4">
+        <div className="border rounded-lg p-4 h-96 overflow-y-auto mb-4">
           {messages.map((message, index) => (
-            <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-3/4 p-4 rounded-lg ${
-                message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100'
-              }`}>
-                <p className="whitespace-pre-wrap">{message.content}</p>
-              </div>
+            <div key={index} className={`mb-4 p-3 rounded-lg ${
+              message.role === 'user' 
+                ? 'bg-blue-100 ml-auto max-w-[80%]' 
+                : 'bg-gray-100 mr-auto max-w-[80%]'
+            }`}>
+              <strong>{message.role === 'user' ? 'You' : 'Nutritionist AI'}:</strong>
+              <p>{message.content}</p>
             </div>
           ))}
-          
-          {isThinking && (
-            <div className="flex justify-start">
-              <div className="bg-gray-100 p-4 rounded-lg">
-                <span>🤔 Thinking...</span>
-              </div>
+          {loading && (
+            <div className="bg-gray-100 mr-auto max-w-[80%] mb-4 p-3 rounded-lg">
+              <strong>Nutritionist AI:</strong>
+              <p>Thinking...</p>
             </div>
           )}
-          
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="px-6 py-3 border-t bg-gray-50">
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              "What are good protein sources?",
-              "How much water should I drink daily?",
-              "What vitamins are important for bone health?", 
-              "Tell me about healthy fats"
-            ].map((question, index) => (
-              <button
-                key={index}
-                onClick={() => setInputMessage(question)}
-                className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-lg text-left"
-              >
-                {question}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="p-6 border-t">
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              placeholder="Ask about nutrition..."
-              className="flex-1 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={!inputMessage.trim() || isThinking}
-              className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg"
-            >
-              Send
-            </button>
-          </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+            placeholder="Ask about nutrition..."
+            className="flex-1 p-3 border rounded-lg"
+            disabled={loading}
+          />
+          <button
+            onClick={sendMessage}
+            disabled={loading || !input.trim()}
+            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+          >
+            Send
+          </button>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
