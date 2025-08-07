@@ -3,12 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 import anthropic
-import pinecone
 import uuid
 from typing import List, Dict
 from dotenv import load_dotenv
-import PyPDF2
-import docx
 
 load_dotenv()
 
@@ -22,143 +19,62 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Initialize only Claude for now
 try:
-    try:
     claude = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    
-    # Updated Pinecone initialization for newer client version
-    from pinecone import Pinecone
-    pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-    
-    index_name = "nutrition-docs"
-    index = pc.Index(index_name)
-    
-    print("✅ All services initialized!")
+    print("✅ Claude initialized!")
 except Exception as e:
-    print(f"❌ Service initialization failed: {e}")
-    claude = index = None
+    print(f"❌ Claude initialization failed: {e}")
+    claude = None
 
 class ChatRequest(BaseModel):
     message: str
 
 @app.get("/")
 async def root():
-    return {"message": "Nutrition RAG API is running! 🚀"}
+    return {"message": "Nutrition RAG API is running! 🚀", "status": "healthy"}
 
 @app.get("/api/health")
 async def health():
     return {
         "status": "healthy",
         "claude": claude is not None,
-        "pinecone": index is not None
+        "message": "Backend is working! Pinecone temporarily disabled for testing."
     }
-
-def extract_text(file_path: str, filename: str) -> str:
-    if filename.endswith('.pdf'):
-        with open(file_path, 'rb') as file:
-            reader = PyPDF2.PdfReader(file)
-            return "".join([page.extract_text() for page in reader.pages])
-    elif filename.endswith('.docx'):
-        doc = docx.Document(file_path)
-        return "\n".join([p.text for p in doc.paragraphs])
-    else:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return f.read()
-
-def chunk_text(text: str) -> List[str]:
-    chunks = []
-    words = text.split()
-    chunk_size = 150
-    for i in range(0, len(words), chunk_size):
-        chunks.append(" ".join(words[i:i+chunk_size]))
-    return [c for c in chunks if len(c.strip()) > 50]
 
 @app.post("/api/upload")
 async def upload(file: UploadFile = File(...)):
-    if not file.filename.endswith(('.pdf', '.docx', '.txt')):
-        raise HTTPException(400, "Only PDF, DOCX, TXT files supported")
-    
-    if not all([claude, index]):
-        raise HTTPException(503, "Services not initialized")
-    
-    file_path = f"/tmp/{uuid.uuid4()}_{file.filename}"
-    with open(file_path, "wb") as f:
-        f.write(await file.read())
-    
-    try:
-        text = extract_text(file_path, file.filename)
-        chunks = chunk_text(text)
-        
-        upsert_data = []
-        for i, chunk in enumerate(chunks):
-            upsert_data.append({
-                "id": f"{file.filename}_{i}_{uuid.uuid4().hex[:8]}",
-                "metadata": {
-                    "text": chunk, 
-                    "filename": file.filename
-                }
-            })
-        
-        index.upsert(vectors=upsert_data, async_req=False)
-        os.remove(file_path)
-        
-        return {
-            "filename": file.filename,
-            "chunks_processed": len(chunks),
-            "status": "success"
-        }
-    except Exception as e:
-        os.remove(file_path)
-        raise HTTPException(500, str(e))
+    # Temporary placeholder - we'll add back document processing once basic version works
+    return {
+        "message": "Upload temporarily disabled - testing basic functionality first",
+        "filename": file.filename,
+        "status": "placeholder"
+    }
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
-    if not all([claude, index]):
-        raise HTTPException(503, "Services not initialized")
+    if not claude:
+        raise HTTPException(503, "Claude service not initialized")
     
     try:
-        results = index.query(
-            vector=request.message,
-            top_k=3,
-            include_metadata=True
-        )
-        
-        if not results.matches:
-            return {
-                "response": "I don't have information about that. Please upload nutrition documents first!",
-                "sources": []
-            }
-        
-        context = "\n\n".join([
-            f"Source: {match.metadata['filename']}\nContent: {match.metadata['text']}"
-            for match in results.matches
-        ])
-        
-        prompt = f"""You are a nutrition expert. Answer the question using only the provided context.
-
-Context:
-{context}
-
-Question: {request.message}
-
-Provide a helpful answer based on the context."""
-
+        # Simple nutrition responses without vector search for now
         response = claude.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=1000,
-            messages=[{"role": "user", "content": prompt}]
+            max_tokens=500,
+            messages=[{
+                "role": "user", 
+                "content": f"You are a nutrition expert. Provide helpful advice about: {request.message}"
+            }]
         )
-        
-        sources = list(set([match.metadata['filename'] for match in results.matches]))
         
         return {
             "response": response.content[0].text,
-            "sources": sources,
-            "relevant_chunks": len(results.matches)
+            "sources": ["Claude AI Nutrition Knowledge"],
+            "relevant_chunks": 1
         }
         
     except Exception as e:
-        raise HTTPException(500, str(e))
+        raise HTTPException(500, f"Error: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
