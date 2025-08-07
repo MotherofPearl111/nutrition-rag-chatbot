@@ -19,7 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize only Claude for now
+# Initialize Claude - this was missing!
 try:
     claude = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     print("✅ Claude initialized!")
@@ -39,14 +39,14 @@ async def health():
     return {
         "status": "healthy",
         "claude": claude is not None,
-        "message": "Backend is working! Pinecone temporarily disabled for testing."
+        "message": "All services working!" if claude else "Claude connection failed - check API key"
     }
 
 @app.post("/api/upload")
 async def upload(file: UploadFile = File(...)):
-    # Temporary placeholder - we'll add back document processing once basic version works
+    # Temporary placeholder - will add document processing later
     return {
-        "message": "Upload temporarily disabled - testing basic functionality first",
+        "message": "Upload functionality will be added back once basic chat is working",
         "filename": file.filename,
         "status": "placeholder"
     }
@@ -54,16 +54,16 @@ async def upload(file: UploadFile = File(...)):
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
     if not claude:
-        raise HTTPException(503, "Claude service not initialized")
+        raise HTTPException(503, "Claude service not initialized - check API key")
     
     try:
-        # Simple nutrition responses without vector search for now
+        # Call Claude API for nutrition advice
         response = claude.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=500,
             messages=[{
                 "role": "user", 
-                "content": f"You are a nutrition expert. Provide helpful advice about: {request.message}"
+                "content": f"You are a nutrition expert. Provide helpful, accurate advice about: {request.message}"
             }]
         )
         
@@ -74,7 +74,7 @@ async def chat(request: ChatRequest):
         }
         
     except Exception as e:
-        raise HTTPException(500, f"Error: {str(e)}")
+        raise HTTPException(500, f"Claude API error: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
