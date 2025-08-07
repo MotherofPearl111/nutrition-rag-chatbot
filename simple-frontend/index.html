@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nutrition Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+        
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .chat-container {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .message-bubble {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 18px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .user-message {
+            background: white;
+            border: 1px solid #000;
+        }
+        
+        .input-box {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 24px;
+            transition: border-color 0.2s ease;
+        }
+        
+        .input-box:focus-within {
+            border-color: #000;
+        }
+        
+        .send-btn {
+            background: white;
+            border: 1px solid #000;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        
+        .send-btn:hover {
+            background: #000;
+            color: white;
+        }
+        
+        .sample-question {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .sample-question:hover {
+            border-color: #000;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #e5e7eb;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4">
+    <div class="max-w-4xl mx-auto py-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-2xl font-medium text-black mb-2">Nutrition Assistant</h1>
+            <p class="text-gray-600 font-light">Ask me anything about healthy eating</p>
+        </div>
+        
+        <!-- Chat Container -->
+        <div class="chat-container p-6">
+            <!-- Messages -->
+            <div id="messages" class="h-96 overflow-y-auto mb-6 px-2">
+                <div class="text-center mt-20">
+                    <div class="w-12 h-12 bg-white border border-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <span class="text-lg">💬</span>
+                    </div>
+                    <h2 class="text-lg font-medium text-gray-900 mb-3">Welcome</h2>
+                    <p class="text-gray-500 mb-8 font-light">Try asking me about nutrition</p>
+                    
+                    <div class="space-y-3 max-w-md mx-auto">
+                        <div class="sample-question px-4 py-3 text-sm text-gray-700" onclick="askSample('What are the best sources of protein?')">
+                            What are the best sources of protein?
+                        </div>
+                        <div class="sample-question px-4 py-3 text-sm text-gray-700" onclick="askSample('How much water should I drink daily?')">
+                            How much water should I drink daily?
+                        </div>
+                        <div class="sample-question px-4 py-3 text-sm text-gray-700" onclick="askSample('What foods boost energy naturally?')">
+                            What foods boost energy naturally?
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input -->
+            <div class="input-box p-3 flex gap-3 items-center">
+                <input 
+                    type="text" 
+                    id="messageInput" 
+                    placeholder="Type your question..."
+                    class="flex-1 bg-transparent border-0 outline-none text-gray-900 placeholder-gray-400 text-sm"
+                />
+                <button 
+                    id="sendButton"
+                    class="send-btn w-9 h-9 flex items-center justify-center"
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22,2 15,22 11,13 2,9"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="text-center mt-6">
+            <p class="text-xs text-gray-400 font-light">
+                Powered by Claude AI
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const messagesDiv = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        
+        // Your Railway backend URL
+        const API_URL = 'https://nutrition-rag-chatbot-production.up.railway.app';
+        
+        let messages = [];
+
+        function askSample(question) {
+            messageInput.value = question;
+            sendMessage();
+        }
+
+        function addMessage(role, content) {
+            messages.push({ role, content });
+            renderMessages();
+        }
+
+        function renderMessages() {
+            if (messages.length === 0) {
+                messagesDiv.innerHTML = `
+                    <div class="text-center mt-20">
+                        <div class="w-12 h-12 bg-white border border-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <span class="text-lg">💬</span>
+                        </div>
+                        <h2 class="text-lg font-medium text-gray-900 mb-3">Welcome</h2>
+                        <p class="text-gray-500 mb-8 font-light">Try asking me about nutrition</p>
+                        
+                        <div class="space-y-3 max-w-md mx-auto">
+                            <div class="sample-question px-4 py-3 text-sm text-gray-700" onclick="askSample('What are the best sources of protein?')">
+                                What are the best sources of protein?
+                            </div>
+                            <div class="sample-question px-4 py-3 text-sm text-gray-700" onclick="askSample('How much water should I drink daily?')">
+                                How much water should I drink daily?
+                            </div>
+                            <div class="sample-question px-4 py-3 text-sm text-gray-700" onclick="askSample('What foods boost energy naturally?')">
+                                What foods boost energy naturally?
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            messagesDiv.innerHTML = messages.map((message, index) => `
+                <div class="mb-4 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}">
+                    <div class="message-bubble ${message.role === 'user' ? 'user-message' : ''} px-4 py-3 max-w-[70%]">
+                        <div class="text-sm text-gray-900 leading-relaxed">
+                            ${message.content}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function showLoading() {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'loading';
+            loadingDiv.className = 'mb-4 flex justify-start';
+            loadingDiv.innerHTML = `
+                <div class="message-bubble px-4 py-3 max-w-[70%]">
+                    <div class="flex items-center gap-2">
+                        <div class="flex space-x-1">
+                            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                        </div>
+                        <span class="text-xs text-gray-500">Thinking...</span>
+                    </div>
+                </div>
+            `;
+            messagesDiv.appendChild(loadingDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function hideLoading() {
+            const loading = document.getElementById('loading');
+            if (loading) loading.remove();
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // Add user message
+            addMessage('user', message);
+            messageInput.value = '';
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            sendButton.innerHTML = '<div class="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>';
+
+            // Show loading
+            showLoading();
+
+            try {
+                const response = await fetch(`${API_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // Hide loading and add AI response
+                hideLoading();
+                addMessage('assistant', data.response || 'Sorry, I didn\'t receive a proper response.');
+
+            } catch (error) {
+                hideLoading();
+                addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+                console.error('Error:', error);
+            } finally {
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                sendButton.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22,2 15,22 11,13 2,9"></polygon></svg>';
+                messageInput.focus();
+            }
+        }
+
+        // Event listeners
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Focus input on load
+        messageInput.focus();
+    </script>
+</body>
+</html>
