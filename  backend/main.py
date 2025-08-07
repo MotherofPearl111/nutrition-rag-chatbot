@@ -23,11 +23,15 @@ app.add_middleware(
 )
 
 try:
+    try:
     claude = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    pinecone.init(api_key=os.getenv("PINECONE_API_KEY"), environment=os.getenv("PINECONE_ENV"))
+    
+    # Updated Pinecone initialization for newer client version
+    from pinecone import Pinecone
+    pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
     
     index_name = "nutrition-docs"
-    index = pinecone.Index(index_name)
+    index = pc.Index(index_name)
     
     print("✅ All services initialized!")
 except Exception as e:
