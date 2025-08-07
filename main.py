@@ -2,9 +2,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
-import anthropic
-import uuid
-from typing import List, Dict
+from anthropic import Anthropic
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -19,9 +17,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize Claude with proper error handling
+# Initialize Claude with the new working version
 try:
-    claude = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    claude = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     print("✅ Claude initialized successfully!")
 except Exception as e:
     print(f"❌ Claude initialization failed: {e}")
@@ -32,56 +30,38 @@ class ChatRequest(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "Nutrition RAG API is running! 🚀", "status": "healthy"}
+    return {"message": "Nutrition RAG API is running! 🚀"}
 
 @app.get("/api/health")
 async def health():
     return {
         "status": "healthy",
         "claude": claude is not None,
-        "message": "All services working!" if claude else "Claude connection failed - check API key and logs"
-    }
-
-@app.post("/api/upload")
-async def upload(file: UploadFile = File(...)):
-    # Placeholder for document upload - will add back later
-    return {
-        "message": "Document upload will be added back once Claude is working",
-        "filename": file.filename,
-        "chunks_processed": 0,
-        "status": "placeholder"
+        "message": "All services working!" if claude else "Claude failed - check logs"
     }
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
     if not claude:
-        raise HTTPException(503, "Claude service not initialized. Check API key configuration.")
+        raise HTTPException(503, "Claude not available")
     
     try:
-        # Create nutrition-focused prompt
-        nutrition_prompt = f"""You are an expert nutritionist and dietitian. Please provide helpful, evidence-based nutrition advice for this question: {request.message}
-
-Please provide practical, accurate information about nutrition, diet, and health. Keep your response informative but accessible."""
-
-        # Call Claude API
         response = claude.messages.create(
             model="claude-3-sonnet-20240229",
-            max_tokens=600,
+            max_tokens=500,
             messages=[{
                 "role": "user", 
-                "content": nutrition_prompt
+                "content": f"You are a nutrition expert. Provide helpful advice about: {request.message}"
             }]
         )
         
         return {
             "response": response.content[0].text,
-            "sources": ["Claude AI - Nutrition Expert Knowledge"],
-            "relevant_chunks": 1
+            "sources": ["Claude AI Nutrition Knowledge"]
         }
         
     except Exception as e:
-        print(f"Claude API error: {e}")
-        raise HTTPException(500, f"Failed to get response from Claude: {str(e)}")
+        raise HTTPException(500, f"Claude error: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
